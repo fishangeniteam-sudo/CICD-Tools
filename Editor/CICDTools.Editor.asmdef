@@ -1,0 +1,26 @@
+{
+    "name": "CICDTools.Editor",
+    "rootNamespace": "",
+    "references": [
+        "Unity.Pipeline"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [
+        "CICD_TOOLS_HAS_PIPELINE"
+    ],
+    "versionDefines": [
+        {
+            "name": "com.unity.pipeline",
+            "expression": "0.0.0",
+            "define": "CICD_TOOLS_HAS_PIPELINE"
+        }
+    ],
+    "noEngineReferences": false
+}
