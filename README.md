@@ -14,19 +14,53 @@ The Editor must already be on the target platform when a build command runs
 ## Install
 
 Requires Unity 6.0+ and `com.unity.pipeline` (`unity pipeline install`).
-The assembly only compiles when `com.unity.pipeline` is present, so projects
-without it are not affected.
+Install the Pipeline package first, otherwise this package fails to compile.
 
-Add to `Packages/manifest.json`, pinned to a tag:
+Pin to a release tag with the `#v…` suffix. Without it, Unity takes the latest
+commit on `main` and locks it in `Packages/packages-lock.json`.
+
+### Option A: Unity Package Manager (UPM) window
+
+1. In Unity, open **Window → Package Manager**.
+2. Click the **+** button (top-left) and choose **Install package from git URL…**
+3. Paste the URL and click **Install**:
+
+   ```
+   https://github.com/fishangeniteam-sudo/CICD-Tools.git#v1.0.0
+   ```
+
+4. The package appears as **CICD Tools** under **In Project**.
+
+To update later, remove it and add it again with the new tag, or edit the tag
+in `Packages/manifest.json` (Option B).
+
+### Option B: Edit `Packages/manifest.json`
+
+Add this line to `dependencies`:
 
 ```json
 "com.fishan.cicd-tools": "https://github.com/fishangeniteam-sudo/CICD-Tools.git#v1.0.0"
 ```
 
-Or from the command line in CI:
+Unity resolves it the next time the Editor opens or regains focus.
+
+### Private repository
+
+If the repo is private, Unity clones it with your system `git`, so `git` must be
+able to authenticate to GitHub without a prompt (Git Credential Manager on
+Windows, the macOS keychain, or `~/.git-credentials` on the CI runner).
+
+### Replacing a copy in `Assets/`
+
+If the project already has `Assets/Editor/BuildPipelineCommands.cs`, delete it
+and its `.meta` file. The package uses the same GUID and class name, and having
+both causes duplicate-class errors.
+
+## Usage
 
 ```bash
-unity run . --command build-ios
+unity run . -- -buildTarget iOS          # switch platform once
+unity run . --command build-ios          # then build
 ```
 
 ## Releasing
