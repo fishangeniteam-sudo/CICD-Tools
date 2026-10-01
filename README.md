@@ -7,6 +7,7 @@ Editor-only Unity Pipeline CLI commands used by the CI workflows.
 | `build-ios` | Exports the Xcode project to `Builds/iOS/XcodeProject` |
 | `build-android` | Builds an APK (or AAB with `buildAppBundle=true`) |
 | `build-windows` | Builds Standalone Windows 64-bit |
+| `fix-ios-pods` | Aligns conflicting `iosPod` versions in `*Dependencies.xml` to the highest one (`dryRun=true` only reports) |
 
 The Editor must already be on the target platform when a build command runs
 (launch once with `unity run . -- -buildTarget iOS` first).
@@ -60,6 +61,7 @@ both causes duplicate-class errors.
 
 ```bash
 unity run . -- -buildTarget iOS          # switch platform once
+unity run . --command fix-ios-pods       # align iosPod versions (optional)
 unity run . --command build-ios          # then build
 ```
 
