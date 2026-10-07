@@ -3,7 +3,7 @@
   "displayName": "CICD Tools",
   "version": "1.1.0",
   "unity": "6000.0",
-  "description": "Editor-only Unity Pipeline CLI commands for CI builds (build-ios, build-android, build-windows, fix-ios-pods). Commands compile only when com.unity.pipeline is installed in the project.",
+  "description": "Editor scripts for CI builds: build-ios, build-android and build-windows Unity Pipeline commands, and a CocoaPods conflict resolver for iOS builds. Requires com.unity.pipeline.",
   "keywords": ["ci", "cd", "build", "pipeline", "cli"],
   "author": {
     "name": "Fishan Qaisar"

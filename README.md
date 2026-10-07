@@ -1,72 +1,61 @@
 # CICD Tools
 
-Editor-only Unity Pipeline CLI commands used by the CI workflows.
+Editor scripts for building Unity projects from the command line in CI.
+Requires Unity 6.0+ and the `com.unity.pipeline` package (`unity pipeline install`).
 
-| Command | What it does |
+## What's inside
+
+**`BuildPipelineCommands`**: Unity Pipeline CLI commands.
+
+| Command | Output |
 |---|---|
-| `build-ios` | Exports the Xcode project to `Builds/iOS/XcodeProject` |
-| `build-android` | Builds an APK (or AAB with `buildAppBundle=true`) |
-| `build-windows` | Builds Standalone Windows 64-bit |
-| `fix-ios-pods` | Aligns conflicting `iosPod` versions in `*Dependencies.xml` to the highest one (`dryRun=true` only reports) |
+| `build-ios` | Xcode project in `Builds/iOS/XcodeProject` |
+| `build-android` | APK, or AAB with `buildAppBundle=true` |
+| `build-windows` | Standalone Windows 64-bit |
 
-The Editor must already be on the target platform when a build command runs
-(launch once with `unity run . -- -buildTarget iOS` first).
-
-## Install
-
-Requires Unity 6.0+ and `com.unity.pipeline` (`unity pipeline install`).
-Install the Pipeline package first, otherwise this package fails to compile.
-
-Pin to a release tag with the `#v…` suffix. Without it, Unity takes the latest
-commit on `main` and locks it in `Packages/packages-lock.json`.
-
-### Option A: Unity Package Manager (UPM) window
-
-1. In Unity, open **Window → Package Manager**.
-2. Click the **+** button (top-left) and choose **Install package from git URL…**
-3. Paste the URL and click **Install**:
-
-   ```
-   https://github.com/fishangeniteam-sudo/CICD-Tools.git#v1.0.0
-   ```
-
-4. The package appears as **CICD Tools** under **In Project**.
-
-To update later, remove it and add it again with the new tag, or edit the tag
-in `Packages/manifest.json` (Option B).
-
-### Option B: Edit `Packages/manifest.json`
-
-Add this line to `dependencies`:
-
-```json
-"com.fishan.cicd-tools": "https://github.com/fishangeniteam-sudo/CICD-Tools.git#v1.0.0"
-```
-
-Unity resolves it the next time the Editor opens or regains focus.
-
-### Private repository
-
-If the repo is private, Unity clones it with your system `git`, so `git` must be
-able to authenticate to GitHub without a prompt (Git Credential Manager on
-Windows, the macOS keychain, or `~/.git-credentials` on the CI runner).
-
-### Replacing a copy in `Assets/`
-
-If the project already has `Assets/Editor/BuildPipelineCommands.cs`, delete it
-and its `.meta` file. The package uses the same GUID and class name, and having
-both causes duplicate-class errors.
-
-## Usage
+Each command builds the enabled scenes from Build Settings and fails if the
+Editor isn't already on the target platform, so switch first in a separate launch:
 
 ```bash
-unity run . -- -buildTarget iOS          # switch platform once
-unity run . --command fix-ios-pods       # align iosPod versions (optional)
-unity run . --command build-ios          # then build
+unity run . -- -buildTarget iOS      # switch platform
+unity run . --command build-ios      # build
 ```
 
-## Releasing
+**`CocoaPodsConflictResolver`**: runs automatically during iOS builds, after
+EDM4U writes the Podfile. It runs `pod install`. If a pod listed in a
+`*Dependencies.xml` conflicts with the version another pod (e.g. a mediation
+adapter) needs, it removes the direct version and retries. If a conflict can't be
+fixed safely, the build fails with a report naming the XML files involved.
 
-1. Bump `version` in `package.json` and add a `CHANGELOG.md` entry.
-2. Commit, then tag: `git tag v1.0.1 && git push origin v1.0.1`.
-3. Update the `#v…` suffix in each project's manifest.
+Optional per-project config in `ProjectSettings/PodfileOverrides.json`:
+
+```json
+{
+  "disableAutoResolve": false,
+  "overrides": [ { "pod": "Some-SDK", "version": "1.2.3" } ]
+}
+```
+
+A pod with a version here is never changed by the resolver. `"version": ""` removes the constraint.
+
+## How CI uses it
+
+The Gitea iOS workflow downloads the `.cs` files from `main` into
+`Assets/Editor/CI` before opening the Editor, so a push to `main` is used by the
+next CI run. To use something other than `main`, set the Actions variable
+`CI_TOOLS_REF` to a branch or commit SHA.
+
+Projects must not also contain these classes (as a package or as a copy in
+`Assets/`); the workflow fails if they do, because duplicate classes don't compile.
+
+## Installing in a project (optional)
+
+To use the commands locally, add this to `dependencies` in `Packages/manifest.json`:
+
+```json
+"com.fishan.cicd-tools": "https://github.com/fishangeniteam-sudo/CICD-Tools.git"
+```
+
+Unity locks the current commit in `Packages/packages-lock.json`. To update,
+delete that entry from the lock file (or remove and re-add the package).
+Don't install it in projects built by the CI workflow (see above).
