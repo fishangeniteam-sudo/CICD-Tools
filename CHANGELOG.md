@@ -2,6 +2,11 @@
 
 There are no release tags; CI uses the latest `main`.
 
+## 2026-10-07
+
+### Added
+- `CocoaPodsConflictResolver` adds a Podfile `post_install` hook that raises pod deployment targets below the app's minimum iOS version. Fixes Xcode 27 "deployment target ... supported range is 15.0 to 27.0" errors. Turn off with `disableDeploymentTargetFix` in `PodfileOverrides.json`.
+
 ## 2026-10-01
 
 ### Added

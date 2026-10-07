@@ -36,9 +36,14 @@ using Debug = UnityEngine.Debug;
 /// callbacks and [PostProcessBuild] attributes together, so 45 runs in between. Literal used so
 /// this package needs no reference to Google.IOSResolver.dll.
 ///
+/// Before that, it adds a post_install hook to the Podfile that raises every pod's
+/// IPHONEOS_DEPLOYMENT_TARGET to the app's (Player Settings) when the pod's is lower.
+/// Xcode 27+ rejects deployment targets below iOS 15, and many podspecs still declare 9-13.
+///
 /// Optional config: ProjectSettings/PodfileOverrides.json
 /// {
 ///   "disableAutoResolve": false,
+///   "disableDeploymentTargetFix": false,
 ///   "overrides": [ { "pod": "Some-SDK", "version": "1.2.3" } ]
 /// }
 /// Overrides are applied first. A pod pinned with a non-empty version is never touched by the
@@ -66,6 +71,7 @@ public class CocoaPodsConflictResolver : IPostprocessBuildWithReport
     private class Config
     {
         public bool disableAutoResolve;
+        public bool disableDeploymentTargetFix;
         public List<PodOverride> overrides = new List<PodOverride>();
 
         public bool IsPinned(string pod) =>
@@ -109,6 +115,11 @@ public class CocoaPodsConflictResolver : IPostprocessBuildWithReport
             if (!string.IsNullOrWhiteSpace(o.pod))
                 SetPodVersion(podfilePath, o.pod.Trim(), o.version, "manual override");
         }
+
+        // Before any pod install (this one or EDM4U's at 50), so it applies even with
+        // disableAutoResolve.
+        if (!config.disableDeploymentTargetFix)
+            AddDeploymentTargetHook(podfilePath, PlayerSettings.iOS.targetOSVersionString);
 
         if (config.disableAutoResolve)
             return;
@@ -206,6 +217,47 @@ public class CocoaPodsConflictResolver : IPostprocessBuildWithReport
     }
 
     // ------------------------------------------------------------------ Podfile edit
+
+    private const string DeploymentTargetMarker = "# [CICD-Tools] raise pod deployment targets";
+
+    /// <summary>
+    /// Adds post_install code that raises each pod target's IPHONEOS_DEPLOYMENT_TARGET to
+    /// <paramref name="minVersion"/> when lower. Goes into the existing post_install block if
+    /// there is one: CocoaPods allows only one.
+    /// </summary>
+    private static void AddDeploymentTargetHook(string podfilePath, string minVersion)
+    {
+        minVersion = (minVersion ?? "").Trim();
+        if (!Regex.IsMatch(minVersion, @"^\d+(\.\d+){0,2}$"))
+        {
+            Debug.LogWarning($"{Tag} iOS target version '{minVersion}' isn't a version; deployment target fix skipped.");
+            return;
+        }
+
+        string podfile = File.ReadAllText(podfilePath);
+        if (podfile.Contains(DeploymentTargetMarker))
+            return;
+
+        string Body(string installer) =>
+            $"  {DeploymentTargetMarker} below {minVersion} (Player Settings > iOS > Target minimum iOS Version)\n" +
+            $"  {installer}.pods_project.targets.each do |target|\n" +
+            "    target.build_configurations.each do |config|\n" +
+            "      current = config.build_settings['IPHONEOS_DEPLOYMENT_TARGET']\n" +
+            $"      if current && Gem::Version.new(current) < Gem::Version.new('{minVersion}')\n" +
+            $"        config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '{minVersion}'\n" +
+            "      end\n" +
+            "    end\n" +
+            "  end\n";
+
+        Match existing = Regex.Match(podfile, @"^[ \t]*post_install\s+do\s*\|\s*(?<var>\w+)\s*\|[^\n]*\n", RegexOptions.Multiline);
+        string patched = existing.Success
+            ? podfile.Insert(existing.Index + existing.Length, Body(existing.Groups["var"].Value))
+            : podfile.TrimEnd() + "\n\npost_install do |installer|\n" + Body("installer") + "end\n";
+
+        File.WriteAllText(podfilePath, patched);
+        Debug.Log($"{Tag} Podfile: pod deployment targets below {minVersion} will be raised to {minVersion} " +
+                  (existing.Success ? "(added to the existing post_install)." : "(new post_install)."));
+    }
 
     /// <summary>Sets (or with empty version, removes) the version on `pod 'Name', 'ver', ...` lines.</summary>
     private static void SetPodVersion(string podfilePath, string pod, string version, string reason)

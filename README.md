@@ -27,11 +27,17 @@ EDM4U writes the Podfile. It runs `pod install`. If a pod listed in a
 adapter) needs, it removes the direct version and retries. If a conflict can't be
 fixed safely, the build fails with a report naming the XML files involved.
 
+Before that, it adds a `post_install` hook to the Podfile that raises any pod's
+minimum iOS version that is below the app's (Player Settings > iOS > Target
+minimum iOS Version). Xcode 27+ rejects anything below iOS 15, and many pods
+still declare 9-13.
+
 Optional per-project config in `ProjectSettings/PodfileOverrides.json`:
 
 ```json
 {
   "disableAutoResolve": false,
+  "disableDeploymentTargetFix": false,
   "overrides": [ { "pod": "Some-SDK", "version": "1.2.3" } ]
 }
 ```
